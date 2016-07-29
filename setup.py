@@ -1,0 +1,30 @@
+import sys
+import os
+
+from setuptools import setup, find_packages
+
+
+version = '0.1'
+
+
+setup(name='influxproxy',
+      version=version,
+      description="A proxy to InfluxDB",
+      long_description="""""",
+      classifiers=[],
+      keywords='influxdb metrics python',
+      author='Diogo Baeder',
+      author_email='diogo.baeder@yougov.com',
+      url='',
+      license='YouGov',
+      packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
+      include_package_data=True,
+      zip_safe=True,
+      install_requires=[
+          'influxdb==3.0.0',
+      ],
+      dependency_links=['https://devpi.yougov.net/root/yg/'],
+      entry_points="""
+      # -*- Entry points: -*-
+      """,
+      )
