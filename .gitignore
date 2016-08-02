@@ -97,3 +97,4 @@ env/
 .*.swp
 *.orig
 .idea/
+local_options.py
