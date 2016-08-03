@@ -21,7 +21,9 @@ setup(name='influxproxy',
       include_package_data=True,
       zip_safe=True,
       install_requires=[
+          'aiohttp==0.22.4',
           'influxdb==3.0.0',
+          'PyYAML==3.11',
       ],
       dependency_links=['https://devpi.yougov.net/root/yg/'],
       entry_points="""

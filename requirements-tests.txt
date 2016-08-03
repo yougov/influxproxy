@@ -4,4 +4,3 @@ nose
 coverage
 flake8
 xtraceback
-yanc

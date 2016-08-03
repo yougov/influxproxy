@@ -15,6 +15,10 @@ REQUIREMENTS_JENKINS = 'requirements_jenkins.txt'
 REQUIREMENTS_DEV = 'requirements_dev.txt'
 
 
+if 'APP_SETTINGS_YAML' not in os.environ:
+    os.environ['APP_SETTINGS_YAML'] = 'testing.yaml'
+
+
 options(
     venv=Bunch(dir=CURRENT_VENV or 'venv'),
     yg_username=getpass.getuser(),
@@ -45,3 +49,9 @@ def test(args):
 @needs(['test', 'lint'])
 def build(args):
     pass
+
+
+@task
+def run_dev():
+    os.environ['APP_SETTINGS_YAML'] = 'development.yaml'
+    env_do('python influxproxy/app.py')
