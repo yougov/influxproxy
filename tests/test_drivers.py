@@ -6,7 +6,7 @@ from influxdb.client import InfluxDBClient
 from nose.tools import istest
 
 from influxproxy.configuration import config
-from influxproxy.drivers import InfluxDriver
+from influxproxy.drivers import InfluxDriver, MalformedDataError
 
 
 class InfluxDriverTest(TestCase):
@@ -75,3 +75,11 @@ class InfluxDriverTest(TestCase):
 
         self.driver.client.write_points.assert_called_once_with(
             [points], database='my_database')
+
+    @istest
+    def cant_write_if_measurement_missing(self):
+        points = self.create_points()
+        del points[1]['measurement']
+
+        with self.assertRaises(MalformedDataError):
+            self.driver.write('my_database', points)
