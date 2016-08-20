@@ -1,15 +1,8 @@
 import asyncio
-import logging
-import os
 
-import yaml
 from aiohttp import web
 
-
-logger = logging.basicConfig(level=logging.INFO)
-config = yaml.load(open(os.environ['APP_SETTINGS_YAML']))
-PORT = int(os.environ.get('PORT', 8765))
-DEBUG = config.get('debug', False)
+from influxproxy.configuration import DEBUG, PORT, config, logger
 
 
 def create_app(loop):

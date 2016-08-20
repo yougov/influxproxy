@@ -1,2 +1,16 @@
 host: 0.0.0.0
+port: 8765
 debug: True
+
+backend:
+  host: localhost
+  port: 8086
+  udp_port: 8086
+  username: root
+  password: root
+
+databases:
+  testing:
+    public_key: "Q2qr+2IaH39RGhiqpbXR/ExIJFNUgyOXKd7FJ/a8Vfu4ji5PZO5n/2RAHfUbKQ4y"
+    allow_from:
+      - localhost
