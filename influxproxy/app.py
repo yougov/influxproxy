@@ -3,6 +3,7 @@ import asyncio
 from aiohttp import web
 
 from influxproxy.configuration import DEBUG, PORT, config, logger
+from influxproxy.drivers import InfluxDriver
 
 
 def create_app(loop):
@@ -18,6 +19,8 @@ async def ping(request):
 
 
 if __name__ == '__main__':  # pragma: no cover
+    driver = InfluxDriver()
+    driver.create_databases()
     loop = asyncio.get_event_loop()
     app = create_app(loop)
     web.run_app(app, host=config['host'], port=PORT)
