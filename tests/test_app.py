@@ -1,21 +1,12 @@
-from aiohttp.test_utils import AioHTTPTestCase, unittest_run_loop
-from nose.tools import istest
-
-from influxproxy.app import create_app
+from .base import AppTestCase, asynctest
 from influxproxy.configuration import config
 
 
 DB_CONF = config['databases']['testing']
 
 
-class AppTestCase(AioHTTPTestCase):
-    def get_app(self, loop):
-        return create_app(loop)
-
-
 class PingTest(AppTestCase):
-    @istest
-    @unittest_run_loop
+    @asynctest
     async def receives_a_pong(self):
         response = await self.client.get('/ping')
 
@@ -26,8 +17,7 @@ class PingTest(AppTestCase):
 
 
 class PreflightTest(AppTestCase):
-    @istest
-    @unittest_run_loop
+    @asynctest
     async def sends_a_metric_preflight(self):
         response = await self.client.options('/metric', headers={
             'Origin': DB_CONF['allow_from'][0],
@@ -46,8 +36,7 @@ class PreflightTest(AppTestCase):
         self.assertEqual(response.headers['Access-Control-Max-Age'],
                          '600')
 
-    @istest
-    @unittest_run_loop
+    @asynctest
     async def cannot_accept_preflight_if_origin_not_expected(self):
         response = await self.client.options('/metric', headers={
             'Origin': 'some-bogus_origin',
@@ -56,8 +45,7 @@ class PreflightTest(AppTestCase):
 
         self.assertEqual(response.status, 403)
 
-    @istest
-    @unittest_run_loop
+    @asynctest
     async def cannot_accept_preflight_if_method_not_expected(self):
         response = await self.client.options('/metric', headers={
             'Origin': DB_CONF['allow_from'][0],
@@ -66,8 +54,7 @@ class PreflightTest(AppTestCase):
 
         self.assertEqual(response.status, 405)
 
-    @istest
-    @unittest_run_loop
+    @asynctest
     async def cannot_accept_preflight_if_missing_origin(self):
         response = await self.client.options('/metric', headers={
             'Access-Control-Request-Method': 'POST',
@@ -75,8 +62,7 @@ class PreflightTest(AppTestCase):
 
         self.assertEqual(response.status, 400)
 
-    @istest
-    @unittest_run_loop
+    @asynctest
     async def cannot_accept_preflight_if_missing_method(self):
         response = await self.client.options('/metric', headers={
             'Origin': DB_CONF['allow_from'][0],

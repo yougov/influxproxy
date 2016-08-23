@@ -33,7 +33,7 @@ def env_do(tail, capture=False, **kw):
 
 @task
 def lint():
-    env_do('flake8 influxproxy --max-complexity 12')
+    env_do('flake8 influxproxy tests --max-complexity 12')
 
 
 @task
