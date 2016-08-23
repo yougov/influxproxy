@@ -17,6 +17,11 @@ class PingTest(AppTestCase):
 
 
 class PreflightTest(AppTestCase):
+    def assert_control(self, response, access_control, expected):
+        self.assertEqual(
+            response.headers['Access-Control-{}'.format(access_control)],
+            expected)
+
     @asynctest
     async def sends_a_metric_preflight(self):
         response = await self.client.options('/metric', headers={
@@ -25,16 +30,10 @@ class PreflightTest(AppTestCase):
         })
 
         self.assertEqual(response.status, 200)
-        self.assertEqual(response.headers['Access-Control-Allow-Origin'],
-                         DB_CONF['allow_from'][0])
-        self.assertEqual(response.headers['Access-Control-Allow-Credentials'],
-                         'true')
-        self.assertEqual(response.headers['Access-Control-Allow-Methods'],
-                         'POST')
-        self.assertEqual(response.headers['Access-Control-Request-Headers'],
-                         'Content-Type')
-        self.assertEqual(response.headers['Access-Control-Max-Age'],
-                         '600')
+        self.assert_control(response, 'Allow-Origin', DB_CONF['allow_from'][0])
+        self.assert_control(response, 'Allow-Credentials', 'true')
+        self.assert_control(response, 'Allow-Methods', 'POST')
+        self.assert_control(response, 'Max-Age', '600')
 
     @asynctest
     async def cannot_accept_preflight_if_origin_not_expected(self):
