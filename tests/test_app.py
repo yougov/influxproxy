@@ -8,10 +8,12 @@ from influxproxy.configuration import config
 DB_CONF = config['databases']['testing']
 
 
-class PingTest(AioHTTPTestCase):
+class AppTestCase(AioHTTPTestCase):
     def get_app(self, loop):
         return create_app(loop)
 
+
+class PingTest(AppTestCase):
     @istest
     @unittest_run_loop
     async def receives_a_pong(self):
@@ -22,6 +24,8 @@ class PingTest(AioHTTPTestCase):
         expected = 'pong'
         self.assertEqual(content, expected)
 
+
+class PreflightTest(AppTestCase):
     @istest
     @unittest_run_loop
     async def sends_a_metric_preflight(self):
