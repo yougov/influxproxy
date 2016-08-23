@@ -55,6 +55,7 @@ async def preflight_metric(request):
         'Access-Control-Allow-Credentials': 'true',
         'Access-Control-Allow-Methods': 'POST',
         'Access-Control-Request-Headers': 'Content-Type',
+        'Access-Control-Max-Age': '600',
         'Access-Control-Allow-Origin': origin,
     })
 

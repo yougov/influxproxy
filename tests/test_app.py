@@ -39,6 +39,8 @@ class PingTest(AioHTTPTestCase):
                          'POST')
         self.assertEqual(response.headers['Access-Control-Request-Headers'],
                          'Content-Type')
+        self.assertEqual(response.headers['Access-Control-Max-Age'],
+                         '600')
 
     @istest
     @unittest_run_loop
