@@ -1,9 +1,12 @@
 import asyncio
+import base64
+import logging
+from uuid import uuid4
 
 from aiohttp import web
 
-from influxproxy.configuration import DEBUG, PORT, config, logger
-from influxproxy.drivers import InfluxDriver
+from influxproxy.configuration import DEBUG, PORT, config
+from influxproxy.drivers import InfluxDriver, MalformedDataError
 
 
 ALL_ALLOWED_ORIGINS = [
@@ -13,8 +16,7 @@ ALL_ALLOWED_ORIGINS = [
 ]
 
 
-class RequestError(RuntimeError):
-    """Raised when there's a request error."""
+logger = logging.getLogger('influxdb.app')
 
 
 def create_app(loop):
@@ -22,15 +24,16 @@ def create_app(loop):
 
     app.router.add_route('GET', '/ping', ping)
     app.router.add_route('OPTIONS', '/metric', preflight_metric)
+    app.router.add_route('POST', '/metric', send_metric)
 
     return app
 
 
-def ensure_headers(request):
-    expected_headers = ['Origin', 'Access-Control-Request-Method']
+def ensure_headers(request, expected_headers):
     for header in expected_headers:
         if header not in request.headers:
-            raise RequestError('{} header is missing'.format(header))
+            raise web.HTTPBadRequest(
+                reason='{} header is missing'.format(header))
 
 
 async def ping(request):
@@ -38,26 +41,72 @@ async def ping(request):
 
 
 async def preflight_metric(request):
-    try:
-        ensure_headers(request)
-    except RequestError as e:
-        return web.Response(status=400, reason=str(e).encode('utf-8'))
+    ensure_headers(request, ['Origin', 'Access-Control-Request-Method'])
 
     origin = request.headers['Origin']
+    method = request.headers['Access-Control-Request-Method']
 
-    if request.headers['Access-Control-Request-Method'] != 'POST':
-        return web.Response(status=405, reason=b'Only POST allowed')
+    if method != 'POST':
+        raise web.HTTPMethodNotAllowed(method, ['POST'])
 
     if origin not in ALL_ALLOWED_ORIGINS:
-        return web.Response(status=403, reason=b'Origin not allowed')
+        raise web.HTTPForbidden(reason='Origin not allowed')
 
-    return web.Response(body=b'', headers={
+    return web.Response(headers={
         'Access-Control-Allow-Credentials': 'true',
         'Access-Control-Allow-Methods': 'POST',
         'Access-Control-Request-Headers': 'Content-Type',
         'Access-Control-Max-Age': '600',
         'Access-Control-Allow-Origin': origin,
     })
+
+
+async def send_metric(request):
+    ensure_headers(request, ['Origin', 'Authorization'])
+
+    authorization = request.headers['Authorization']
+    origin = request.headers['Origin']
+    request_id = uuid4()
+
+    try:
+        auth_type, auth = authorization.split(maxsplit=1)
+        b64_decoded = base64.b64decode(auth)
+        database, public_key = b64_decoded.decode('utf-8').split(':')
+    except:
+        raise web.HTTPBadRequest(reason='Bad Authorization string: {}'.format(
+            authorization
+        ))
+
+    if auth_type != 'Basic':
+        raise web.HTTPBadRequest(reason='Authorization must be Basic')
+
+    try:
+        db_conf = config['databases'][database]
+    except KeyError:
+        raise web.HTTPUnauthorized()
+
+    if public_key != db_conf['public_key']:
+        raise web.HTTPUnauthorized()
+
+    if origin not in db_conf['allow_from']:
+        raise web.HTTPForbidden(reason='Origin not allowed')
+
+    points = await request.json()
+
+    try:
+        driver = InfluxDriver()
+        driver.write(database, points)
+    except MalformedDataError as e:
+        raise web.HTTPBadRequest(reason=str(e))
+    except Exception as e:
+        logger.error('Metric for request %s failed', request_id)
+        logger.exception(e)
+        reason = (
+            'Internal Server Error. Please provide this ID to the system '
+            'administrators: {}').format(request_id)
+        raise web.HTTPInternalServerError(reason=reason)
+
+    raise web.HTTPNoContent()
 
 
 if __name__ == '__main__':  # pragma: no cover

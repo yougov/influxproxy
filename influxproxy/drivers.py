@@ -33,7 +33,7 @@ class InfluxDriver:
             for point in points:
                 self._validate_point(point)
         except Exception as e:
-            raise MalformedDataError(e)
+            raise MalformedDataError(str(e))
 
     def _validate_point(self, point):
         if not all(field in point for field in MANDATORY_FIELDS):
