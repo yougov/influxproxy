@@ -8,7 +8,6 @@ from uuid import uuid4
 
 import aiohttp_jinja2
 import jinja2
-import uvloop
 from aiohttp import web
 
 from influxproxy.configuration import DEBUG, PORT, PROJECT_ROOT, config
@@ -24,7 +23,6 @@ MANUAL_TEST_HOST = os.environ.get('HOST', 'localhost')
 
 
 logger = logging.getLogger('influxdb.app')
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 
 def create_app(loop):

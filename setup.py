@@ -25,7 +25,7 @@ setup(name='influxproxy',
           'aiohttp_jinja2==0.8.0',
           'influxdb==3.0.0',
           'PyYAML==3.11',
-          'uvloop==0.5.2',
+          #'uvloop==0.5.2',  # Breaks static file serving. Will try later.
           'cchardet==1.0.0',
       ],
       dependency_links=['https://devpi.yougov.net/root/yg/'],
