@@ -25,6 +25,8 @@ setup(name='influxproxy',
           'aiohttp_jinja2==0.8.0',
           'influxdb==3.0.0',
           'PyYAML==3.11',
+          'uvloop==0.5.2',
+          'cchardet==1.0.0',
       ],
       dependency_links=['https://devpi.yougov.net/root/yg/'],
       entry_points="""
