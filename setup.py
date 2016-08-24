@@ -22,6 +22,7 @@ setup(name='influxproxy',
       zip_safe=True,
       install_requires=[
           'aiohttp==0.22.4',
+          'aiohttp_jinja2==0.8.0',
           'influxdb==3.0.0',
           'PyYAML==3.11',
       ],

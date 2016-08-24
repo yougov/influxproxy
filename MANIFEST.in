@@ -1,0 +1,12 @@
+recursive-include influxproxy *.css
+recursive-include influxproxy *.csv
+recursive-include influxproxy *.gif
+recursive-include influxproxy *.html
+recursive-include influxproxy *.ico
+recursive-include influxproxy *.jpg
+recursive-include influxproxy *.js
+recursive-include influxproxy *.json
+recursive-include influxproxy *.png
+recursive-include influxproxy *.tmpl
+recursive-include influxproxy *.yaml
+recursive-include influxproxy/static *.*

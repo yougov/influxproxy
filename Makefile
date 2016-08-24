@@ -2,3 +2,4 @@
 setup:
 	pip install paver
 	pip install -r requirements-tests.txt
+	python setup.py develop

@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 
 import yaml
 
@@ -11,3 +12,4 @@ config = yaml.load(open(os.environ['APP_SETTINGS_YAML']))
 
 PORT = int(os.environ.get('PORT', None) or config.get('port', 8765))
 DEBUG = config.get('debug', False)
+PROJECT_ROOT = Path(__file__).parent.parent

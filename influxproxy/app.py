@@ -1,11 +1,15 @@
+#!/usr/bin/env python
+
 import asyncio
 import base64
 import logging
 from uuid import uuid4
 
+import aiohttp_jinja2
+import jinja2
 from aiohttp import web
 
-from influxproxy.configuration import DEBUG, PORT, config
+from influxproxy.configuration import DEBUG, PORT, PROJECT_ROOT, config
 from influxproxy.drivers import InfluxDriver, MalformedDataError
 
 
@@ -25,6 +29,11 @@ def create_app(loop):
     app.router.add_route('GET', '/ping', ping)
     app.router.add_route('OPTIONS', '/metric', preflight_metric)
     app.router.add_route('POST', '/metric', send_metric)
+    app.router.add_route('GET', '/manual-test', manual_test)
+    app.router.add_static('/static', PROJECT_ROOT / 'influxproxy' / 'static')
+    aiohttp_jinja2.setup(
+        app, loader=jinja2.FileSystemLoader(
+            str(PROJECT_ROOT / 'influxproxy' / 'templates')))
 
     return app
 
@@ -107,6 +116,20 @@ async def send_metric(request):
         raise web.HTTPInternalServerError(reason=reason)
 
     raise web.HTTPNoContent()
+
+
+@aiohttp_jinja2.template('manual-test.html')
+async def manual_test(request):
+    if not config['manual_test_page']:
+        raise web.HTTPNotFound()
+
+    database = list(config['databases'])[0]
+    public_key = config['databases'][database]['public_key']
+
+    return {
+        'database': database,
+        'public_key': public_key,
+    }
 
 
 if __name__ == '__main__':  # pragma: no cover

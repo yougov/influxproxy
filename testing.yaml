@@ -1,6 +1,7 @@
 host: 0.0.0.0
 port: 8765
 debug: True
+manual_test_page: True
 
 backend:
   host: localhost

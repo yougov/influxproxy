@@ -260,3 +260,30 @@ class MetricPostTest(AppTestCase):
             })
 
             self.assertEqual(response.status, 500)
+
+
+class ManualTest(AppTestCase):
+    @asynctest
+    async def loads_manual_test_page(self):
+        response = await self.client.get('/manual-test')
+        content = await response.text()
+
+        self.assertEqual(response.status, 200)
+        self.assertIn('<body', content)
+
+    @asynctest
+    async def cannot_load_manual_test_if_not_configured(self):
+        with patch.dict(config, {'manual_test_page': False}):
+            response = await self.client.get('/manual-test')
+
+            self.assertEqual(response.status, 404)
+
+
+class StaticTest(AppTestCase):
+    @asynctest
+    async def loads_js_file(self):
+        response = await self.client.get('/static/js/jquery-3.1.0.min.js')
+        content = await response.text()
+
+        self.assertEqual(response.status, 200)
+        self.assertIn('jQuery', content)
