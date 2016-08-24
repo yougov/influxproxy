@@ -39,7 +39,10 @@ class PreflightTest(AppTestCase):
         self.assert_control(response, 'Allow-Origin', DB_CONF['allow_from'][0])
         self.assert_control(response, 'Allow-Credentials', 'true')
         self.assert_control(response, 'Allow-Methods', 'POST')
-        self.assert_control(response, 'Max-Age', '600')
+        self.assert_control(
+            response, 'Allow-Headers', 'Content-Type, Authorization')
+        self.assert_control(
+            response, 'Max-Age', str(config['preflight_expiration']))
 
     @asynctest
     async def cannot_accept_preflight_if_origin_not_expected(self):
@@ -96,6 +99,7 @@ class MetricPostTest(AppTestCase):
             })
 
             self.assertEqual(response.status, 204)
+            MockDriver.assert_called_once_with(udp_port=DB_CONF['udp_port'])
             driver.write.assert_called_once_with(DB_USER, points)
 
     @asynctest

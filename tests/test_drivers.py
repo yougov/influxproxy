@@ -1,3 +1,4 @@
+import socket
 from datetime import datetime
 from unittest import TestCase
 from unittest.mock import MagicMock, call, patch
@@ -40,12 +41,19 @@ class InfluxDriverTest(TestCase):
 
         driver = InfluxDriver()
 
+        host = socket.gethostbyname(backend_conf['host'])
         self.assertIsInstance(driver.client, InfluxDBClient)
-        self.assertEqual(driver.client._host, backend_conf['host'])
+        self.assertEqual(driver.client._host, host)
         self.assertEqual(driver.client._port, backend_conf['port'])
         self.assertEqual(driver.client.udp_port, backend_conf['udp_port'])
         self.assertEqual(driver.client._username, backend_conf['username'])
         self.assertEqual(driver.client._password, backend_conf['password'])
+
+    @istest
+    def starts_with_alternative_udp_port(self):
+        driver = InfluxDriver(udp_port=1234)
+
+        self.assertEqual(driver.client.udp_port, 1234)
 
     @istest
     def creates_databases(self):

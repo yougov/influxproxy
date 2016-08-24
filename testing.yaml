@@ -2,6 +2,7 @@ host: 0.0.0.0
 port: 8765
 debug: True
 manual_test_page: True
+preflight_expiration: 600
 
 backend:
   host: localhost
@@ -13,5 +14,6 @@ backend:
 databases:
   testing:
     public_key: "Q2qr+2IaH39RGhiqpbXR/ExIJFNUgyOXKd7FJ/a8Vfu4ji5PZO5n/2RAHfUbKQ4y"
+    udp_port: 8086
     allow_from:
       - localhost

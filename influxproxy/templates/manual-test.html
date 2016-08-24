@@ -1,7 +1,48 @@
+<!DOCTYPE html>
 <html>
 <head>
 </head>
 <body>
     <h1>Manual test for InfluxProxy</h1>
+
+    <p id="success" style="display: none;">Success!!!</p>
+    <p id="failure" style="display: none;">Failed: <span id="reason"></span></p>
+
+    <script src="/static/js/jquery-3.1.0.min.js"></script>
+    <script>
+    $(document).ready(function(){
+        var database = '{{ database }}',
+            publicKey = '{{ public_key }}',
+            url = 'http://{{ host }}:{{ port }}/metric',
+            metric = {
+                measurement: 'somenumbers',
+                time: new Date(),
+                fields: {
+                    value: Math.random()
+                },
+                tags: {
+                    host: '{{ host }}'
+                }
+            };
+
+        $.post({
+            url: url,
+            data: JSON.stringify(metric),
+            dataType: 'json',
+            contentType: 'application/json',
+            jsonp: false,
+            headers: {
+                Authorization: 'Basic ' + btoa(database + ':' + publicKey)
+            },
+            success: function() {
+                $('#success').show();
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                $('#failure').show();
+                $('#reason').html(errorThrown);
+            }
+        });
+    });
+    </script>
 </body>
 </html>

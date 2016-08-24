@@ -1,3 +1,6 @@
+import logging
+import socket
+
 from influxdb import InfluxDBClient
 
 from influxproxy.configuration import config
@@ -6,17 +9,25 @@ from influxproxy.configuration import config
 MANDATORY_FIELDS = ('measurement', 'time', 'fields')
 
 
+logger = logging.getLogger('influxproxy.drivers')
+
+
 class MalformedDataError(ValueError):
     """Raised when the data is malformed."""
 
 
 class InfluxDriver:
-    def __init__(self):
+    def __init__(self, udp_port=None):
         backend_conf = config['backend']
+        host = socket.gethostbyname(backend_conf['host'])
+
+        if udp_port is None:
+            udp_port = backend_conf['udp_port']
+
         self.client = InfluxDBClient(
-            backend_conf['host'], backend_conf['port'],
+            host, backend_conf['port'],
             backend_conf['username'], backend_conf['password'],
-            use_udp=True, udp_port=backend_conf['udp_port'])
+            use_udp=True, udp_port=udp_port)
 
     def create_databases(self):
         for db in sorted(config['databases']):

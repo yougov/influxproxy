@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import logging
+import os
 from uuid import uuid4
 
 import aiohttp_jinja2
@@ -18,6 +19,7 @@ ALL_ALLOWED_ORIGINS = [
     for db_conf in config['databases'].values()
     for allowed in db_conf['allow_from']
 ]
+MANUAL_TEST_HOST = os.environ.get('HOST', 'localhost')
 
 
 logger = logging.getLogger('influxdb.app')
@@ -64,9 +66,10 @@ async def preflight_metric(request):
     return web.Response(headers={
         'Access-Control-Allow-Credentials': 'true',
         'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Request-Headers': 'Content-Type',
-        'Access-Control-Max-Age': '600',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Allow-Origin': origin,
+        'Access-Control-Max-Age': str(config['preflight_expiration']),
+        'Content-Type': 'text/plain',
     })
 
 
@@ -103,7 +106,7 @@ async def send_metric(request):
     points = await request.json()
 
     try:
-        driver = InfluxDriver()
+        driver = InfluxDriver(udp_port=db_conf.get('udp_port'))
         driver.write(database, points)
     except MalformedDataError as e:
         raise web.HTTPBadRequest(reason=str(e))
@@ -115,7 +118,9 @@ async def send_metric(request):
             'administrators: {}').format(request_id)
         raise web.HTTPInternalServerError(reason=reason)
 
-    raise web.HTTPNoContent()
+    raise web.HTTPNoContent(headers={
+        'Access-Control-Allow-Origin': origin,
+    })
 
 
 @aiohttp_jinja2.template('manual-test.html')
@@ -129,6 +134,8 @@ async def manual_test(request):
     return {
         'database': database,
         'public_key': public_key,
+        'host': MANUAL_TEST_HOST,
+        'port': PORT,
     }
 
 
