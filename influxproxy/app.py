@@ -28,6 +28,7 @@ class RequestUser:
         self.public_key = request.match_info.get('public_key')
         self.config = None
         self.origin = None
+        self.allowed_to = None
 
     def setup(self):
         self.setup_config()
@@ -35,9 +36,11 @@ class RequestUser:
         self.setup_origin()
 
     def setup_origin(self):
-        self.origin = self.request.headers['Origin']
+        self.origin = self.allowed_to = self.request.headers['Origin']
         allow_from = self.config['allow_from']
-        if allow_from != '*' and self.origin not in allow_from:
+        if allow_from == '*':
+            self.allowed_to = '*'
+        elif self.origin not in allow_from:
             raise web.HTTPForbidden(reason='Origin not allowed')
 
     def setup_public_key(self):
@@ -90,10 +93,9 @@ async def preflight_metric(request):
         raise web.HTTPMethodNotAllowed(method, ['POST'])
 
     return web.Response(headers={
-        'Access-Control-Allow-Credentials': 'true',
         'Access-Control-Allow-Methods': 'POST',
         'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Origin': user.origin,
+        'Access-Control-Allow-Origin': user.allowed_to,
         'Access-Control-Max-Age': str(config['preflight_expiration']),
         'Content-Type': 'text/plain',
     })
@@ -123,7 +125,7 @@ async def send_metric(request):
         raise web.HTTPInternalServerError(reason=reason)
 
     raise web.HTTPNoContent(headers={
-        'Access-Control-Allow-Origin': user.origin,
+        'Access-Control-Allow-Origin': user.allowed_to,
     })
 
 

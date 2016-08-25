@@ -59,7 +59,7 @@ class PreflightTest(AppTestCase):
         response = await self.do_preflight()
 
         self.assertEqual(response.status, 200)
-        self.assert_control(response, 'Allow-Origin', origin)
+        self.assert_control(response, 'Allow-Origin', '*')
         self.assert_control(response, 'Allow-Methods', 'POST')
         self.assert_control(
             response, 'Allow-Headers', 'Content-Type')
@@ -166,7 +166,7 @@ class MetricPostTest(AppTestCase):
             response = await self.send_metric()
 
             self.assertEqual(response.status, 204)
-            self.assert_control(response, 'Allow-Origin', origin)
+            self.assert_control(response, 'Allow-Origin', '*')
             MockDriver.assert_called_once_with(
                 udp_port=config['databases']['udp']['udp_port'])
             driver.write.assert_called_once_with(self.user, self.points)
