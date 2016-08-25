@@ -52,6 +52,13 @@ def build(args):
 
 
 @task
+def run():
+    env_do('gunicorn -c python:influxproxy.gunicorn influxproxy.main:app')
+
+
+@task
 def run_dev():
     os.environ['APP_SETTINGS_YAML'] = 'development.yaml'
-    env_do('python influxproxy/app.py')
+    os.environ['RELOAD'] = '1'
+    os.environ['DEBUG'] = '1'
+    call_task('run')

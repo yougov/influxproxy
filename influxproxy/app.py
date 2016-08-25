@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import asyncio
 import logging
 import os
 from uuid import uuid4
@@ -78,10 +77,12 @@ def ensure_headers(request, expected_headers):
 
 
 async def ping(request):
+    logger.info('ping')
     return web.Response(body=b'pong')
 
 
 async def preflight_metric(request):
+    logger.info('preflight_metric')
     ensure_headers(request, ['Origin', 'Access-Control-Request-Method'])
 
     user = RequestUser(request)
@@ -102,6 +103,7 @@ async def preflight_metric(request):
 
 
 async def send_metric(request):
+    logger.info('send_metric')
     ensure_headers(request, ['Origin'])
 
     user = RequestUser(request)
@@ -143,11 +145,3 @@ async def manual_test(request):
         'host': MANUAL_TEST_HOST,
         'port': PORT,
     }
-
-
-if __name__ == '__main__':  # pragma: no cover
-    driver = InfluxDriver()
-    driver.create_databases()
-    loop = asyncio.get_event_loop()
-    app = create_app(loop)
-    web.run_app(app, host=config['host'], port=PORT)
