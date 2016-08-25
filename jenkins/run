@@ -1,0 +1,14 @@
+#!/bin/bash -e
+virtualenv env
+
+export APP_SETTINGS_YAML=$WORKSPACE/testing.yaml
+
+DEVPI=https://devpi.yougov.net/root/yg/+simple/
+
+# Upgrade pip
+env/bin/pip install --upgrade pip
+
+# Dependencies
+env/bin/pip install -r requirements-tests.txt
+
+VIRTUAL_ENV=env env/bin/paver build
