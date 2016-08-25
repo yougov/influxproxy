@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import asyncio
-import base64
 import logging
 import os
 from uuid import uuid4
@@ -28,9 +27,10 @@ logger = logging.getLogger('influxdb.app')
 def create_app(loop):
     app = web.Application(logger=logger, loop=loop, debug=DEBUG)
 
+    metric_path = r'/metric/{database}/{public_key:.+}'
     app.router.add_route('GET', '/ping', ping)
-    app.router.add_route('OPTIONS', '/metric', preflight_metric)
-    app.router.add_route('POST', '/metric', send_metric)
+    app.router.add_route('OPTIONS', metric_path, preflight_metric)
+    app.router.add_route('POST', metric_path, send_metric)
     app.router.add_route('GET', '/manual-test', manual_test)
     app.router.add_static('/static', PROJECT_ROOT / 'influxproxy' / 'static')
     aiohttp_jinja2.setup(
@@ -57,16 +57,28 @@ async def preflight_metric(request):
     origin = request.headers['Origin']
     method = request.headers['Access-Control-Request-Method']
 
+    database = request.match_info.get('database')
+    public_key = request.match_info.get('public_key')
+    wrong_credentials = 'Wrong database or public_key'
+
+    try:
+        db_conf = config['databases'][database]
+    except KeyError:
+        raise web.HTTPUnauthorized(reason=wrong_credentials)
+
+    if public_key != db_conf['public_key']:
+        raise web.HTTPUnauthorized(reason=wrong_credentials)
+
+    if origin not in db_conf['allow_from']:
+        raise web.HTTPForbidden(reason='Origin not allowed')
+
     if method != 'POST':
         raise web.HTTPMethodNotAllowed(method, ['POST'])
-
-    if origin not in ALL_ALLOWED_ORIGINS:
-        raise web.HTTPForbidden(reason='Origin not allowed')
 
     return web.Response(headers={
         'Access-Control-Allow-Credentials': 'true',
         'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type',
         'Access-Control-Allow-Origin': origin,
         'Access-Control-Max-Age': str(config['preflight_expiration']),
         'Content-Type': 'text/plain',
@@ -74,31 +86,22 @@ async def preflight_metric(request):
 
 
 async def send_metric(request):
-    ensure_headers(request, ['Origin', 'Authorization'])
+    ensure_headers(request, ['Origin'])
 
-    authorization = request.headers['Authorization']
     origin = request.headers['Origin']
     request_id = uuid4()
 
-    try:
-        auth_type, auth = authorization.split(maxsplit=1)
-        b64_decoded = base64.b64decode(auth)
-        database, public_key = b64_decoded.decode('utf-8').split(':')
-    except:
-        raise web.HTTPBadRequest(reason='Bad Authorization string: {}'.format(
-            authorization
-        ))
-
-    if auth_type != 'Basic':
-        raise web.HTTPBadRequest(reason='Authorization must be Basic')
+    database = request.match_info.get('database')
+    public_key = request.match_info.get('public_key')
+    wrong_credentials = 'Wrong database or public_key'
 
     try:
         db_conf = config['databases'][database]
     except KeyError:
-        raise web.HTTPUnauthorized()
+        raise web.HTTPUnauthorized(reason=wrong_credentials)
 
     if public_key != db_conf['public_key']:
-        raise web.HTTPUnauthorized()
+        raise web.HTTPUnauthorized(reason=wrong_credentials)
 
     if origin not in db_conf['allow_from']:
         raise web.HTTPForbidden(reason='Origin not allowed')
@@ -106,7 +109,7 @@ async def send_metric(request):
     points = await request.json()
 
     try:
-        driver = InfluxDriver(udp_port=db_conf.get('udp_port'))
+        driver = InfluxDriver(udp_port=db_conf['udp_port'])
         driver.write(database, points)
     except MalformedDataError as e:
         raise web.HTTPBadRequest(reason=str(e))

@@ -11,9 +11,7 @@
     <script src="/static/js/jquery-3.1.0.min.js"></script>
     <script>
     $(document).ready(function(){
-        var database = '{{ database }}',
-            publicKey = '{{ public_key }}',
-            url = 'http://{{ host }}:{{ port }}/metric',
+        var url = 'http://{{ host }}:{{ port }}/metric/{{ database }}/{{ public_key }}',
             metric = {
                 measurement: 'somenumbers',
                 time: new Date(),
@@ -31,9 +29,6 @@
             dataType: 'json',
             contentType: 'application/json',
             jsonp: false,
-            headers: {
-                Authorization: 'Basic ' + btoa(database + ':' + publicKey)
-            },
             success: function() {
                 $('#success').show();
             },

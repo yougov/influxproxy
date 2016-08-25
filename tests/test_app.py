@@ -1,4 +1,3 @@
-import base64
 import json
 from unittest.mock import patch
 
@@ -25,6 +24,8 @@ class PingTest(AppTestCase):
 class PreflightTest(AppTestCase):
     def setUp(self):
         super().setUp()
+        self.user = DB_USER
+        self.public_key = DB_CONF['public_key']
         self.headers = {
             'Origin': DB_CONF['allow_from'][0],
             'Access-Control-Request-Method': 'POST',
@@ -35,8 +36,8 @@ class PreflightTest(AppTestCase):
             response.headers['Access-Control-{}'.format(access_control)],
             expected)
 
-    async def do_preflight(self, user=DB_USER, headers=None):
-        url = '/metric'
+    async def do_preflight(self, headers=None):
+        url = '/metric/{}/{}'.format(self.user, self.public_key)
         if headers is not None:
             self.headers.update(headers)
 
@@ -51,7 +52,7 @@ class PreflightTest(AppTestCase):
         self.assert_control(response, 'Allow-Credentials', 'true')
         self.assert_control(response, 'Allow-Methods', 'POST')
         self.assert_control(
-            response, 'Allow-Headers', 'Content-Type, Authorization')
+            response, 'Allow-Headers', 'Content-Type')
         self.assert_control(
             response, 'Max-Age', str(config['preflight_expiration']))
 
@@ -62,6 +63,22 @@ class PreflightTest(AppTestCase):
         })
 
         self.assertEqual(response.status, 403)
+
+    @asynctest
+    async def cannot_accept_preflight_if_wrong_database(self):
+        self.user = 'bogus-user'
+
+        response = await self.do_preflight()
+
+        self.assertEqual(response.status, 401)
+
+    @asynctest
+    async def cannot_accept_preflight_if_wrong_public_key(self):
+        self.public_key = 'bogus-key'
+
+        response = await self.do_preflight()
+
+        self.assertEqual(response.status, 401)
 
     @asynctest
     async def cannot_accept_preflight_if_method_not_expected(self):
@@ -102,18 +119,15 @@ class MetricPostTest(AppTestCase):
         self.set_auth(DB_USER, DB_CONF['public_key'])
 
     def set_auth(self, user, public_key):
+        self.user = user
         self.public_key = public_key
-        self.authorization = base64.b64encode(
-            '{}:{}'.format(user, self.public_key).encode('utf-8'))
-        self.headers['Authorization'] = 'Basic {}'.format(
-            self.authorization.decode('utf-8'))
 
     def set_origin(self, origin):
         self.origin = origin
         self.headers['Origin'] = origin
 
     async def send_metric(self, headers=None):
-        url = '/metric'
+        url = '/metric/{}/{}'.format(self.user, self.public_key)
 
         return await self.client.post(
             url, data=self.data, headers=self.headers)
@@ -160,40 +174,6 @@ class MetricPostTest(AppTestCase):
             response = await self.send_metric()
 
             self.assertEqual(response.status, 401)
-            self.assertFalse(driver.write.called)
-
-    @asynctest
-    async def cant_send_metric_if_auth_not_basic(self):
-        with patch('influxproxy.app.InfluxDriver') as MockDriver:
-            self.headers['Authorization'] = 'Bearer {}'.format(
-                self.authorization.decode('utf-8'))
-            driver = MockDriver.return_value
-
-            response = await self.send_metric()
-
-            self.assertEqual(response.status, 400)
-            self.assertFalse(driver.write.called)
-
-    @asynctest
-    async def cant_send_metric_if_auth_not_decodable(self):
-        with patch('influxproxy.app.InfluxDriver') as MockDriver:
-            self.headers['Authorization'] = 'Basic {}'.format('bogus-auth')
-            driver = MockDriver.return_value
-
-            response = await self.send_metric()
-
-            self.assertEqual(response.status, 400)
-            self.assertFalse(driver.write.called)
-
-    @asynctest
-    async def cant_send_metric_if_auth_not_splittable(self):
-        with patch('influxproxy.app.InfluxDriver') as MockDriver:
-            self.headers['Authorization'] = self.authorization.decode('utf-8')
-            driver = MockDriver.return_value
-
-            response = await self.send_metric()
-
-            self.assertEqual(response.status, 400)
             self.assertFalse(driver.write.called)
 
     @asynctest
