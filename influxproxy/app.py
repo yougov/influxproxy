@@ -35,13 +35,12 @@ class RequestUser:
         self.origin = None
 
     def setup(self):
-        self.origin = self.request.headers['Origin']
-
         self.setup_config()
         self.setup_public_key()
         self.setup_origin()
 
     def setup_origin(self):
+        self.origin = self.request.headers['Origin']
         if self.origin not in self.config['allow_from']:
             raise web.HTTPForbidden(reason='Origin not allowed')
 
