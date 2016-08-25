@@ -23,17 +23,28 @@ class PingTest(AppTestCase):
 
 
 class PreflightTest(AppTestCase):
+    def setUp(self):
+        super().setUp()
+        self.headers = {
+            'Origin': DB_CONF['allow_from'][0],
+            'Access-Control-Request-Method': 'POST',
+        }
+
     def assert_control(self, response, access_control, expected):
         self.assertEqual(
             response.headers['Access-Control-{}'.format(access_control)],
             expected)
 
+    async def do_preflight(self, user=DB_USER, headers=None):
+        url = '/metric'
+        if headers is not None:
+            self.headers.update(headers)
+
+        return await self.client.options(url, headers=self.headers)
+
     @asynctest
     async def sends_a_metric_preflight(self):
-        response = await self.client.options('/metric', headers={
-            'Origin': DB_CONF['allow_from'][0],
-            'Access-Control-Request-Method': 'POST',
-        })
+        response = await self.do_preflight()
 
         self.assertEqual(response.status, 200)
         self.assert_control(response, 'Allow-Origin', DB_CONF['allow_from'][0])
@@ -46,17 +57,15 @@ class PreflightTest(AppTestCase):
 
     @asynctest
     async def cannot_accept_preflight_if_origin_not_expected(self):
-        response = await self.client.options('/metric', headers={
+        response = await self.do_preflight(headers={
             'Origin': 'some-bogus_origin',
-            'Access-Control-Request-Method': 'POST',
         })
 
         self.assertEqual(response.status, 403)
 
     @asynctest
     async def cannot_accept_preflight_if_method_not_expected(self):
-        response = await self.client.options('/metric', headers={
-            'Origin': DB_CONF['allow_from'][0],
+        response = await self.do_preflight(headers={
             'Access-Control-Request-Method': 'GET',
         })
 
@@ -64,61 +73,69 @@ class PreflightTest(AppTestCase):
 
     @asynctest
     async def cannot_accept_preflight_if_missing_origin(self):
-        response = await self.client.options('/metric', headers={
-            'Access-Control-Request-Method': 'POST',
-        })
+        del self.headers['Origin']
+
+        response = await self.do_preflight()
 
         self.assertEqual(response.status, 400)
 
     @asynctest
     async def cannot_accept_preflight_if_missing_method(self):
-        response = await self.client.options('/metric', headers={
-            'Origin': DB_CONF['allow_from'][0],
-        })
+        del self.headers['Access-Control-Request-Method']
+
+        response = await self.do_preflight()
 
         self.assertEqual(response.status, 400)
 
 
 class MetricPostTest(AppTestCase):
+    def setUp(self):
+        super().setUp()
+
+        self.origin = DB_CONF['allow_from'][0]
+        self.points = ['point1', 'point2']
+        self.data = json.dumps(self.points).encode('utf-8')
+        self.headers = {
+            'Content-Type': 'application/json',
+            'Origin': self.origin,
+        }
+        self.set_auth(DB_USER, DB_CONF['public_key'])
+
+    def set_auth(self, user, public_key):
+        self.public_key = public_key
+        self.authorization = base64.b64encode(
+            '{}:{}'.format(user, self.public_key).encode('utf-8'))
+        self.headers['Authorization'] = 'Basic {}'.format(
+            self.authorization.decode('utf-8'))
+
+    def set_origin(self, origin):
+        self.origin = origin
+        self.headers['Origin'] = origin
+
+    async def send_metric(self, headers=None):
+        url = '/metric'
+
+        return await self.client.post(
+            url, data=self.data, headers=self.headers)
+
     @asynctest
     async def sends_metric_to_driver(self):
         with patch('influxproxy.app.InfluxDriver') as MockDriver:
             driver = MockDriver.return_value
-            origin = DB_CONF['allow_from'][0]
-            public_key = DB_CONF['public_key']
-            authorization = base64.b64encode(
-                '{}:{}'.format(DB_USER, public_key).encode('utf-8'))
-            points = ['point1', 'point2']
-            data = json.dumps(points).encode('utf-8')
 
-            response = await self.client.post('/metric', data=data, headers={
-                'Authorization': 'Basic {}'.format(
-                    authorization.decode('utf-8')),
-                'Content-Type': 'application/json',
-                'Origin': origin,
-            })
+            response = await self.send_metric()
 
             self.assertEqual(response.status, 204)
             MockDriver.assert_called_once_with(udp_port=DB_CONF['udp_port'])
-            driver.write.assert_called_once_with(DB_USER, points)
+            driver.write.assert_called_once_with(DB_USER, self.points)
 
     @asynctest
     async def cant_send_metric_if_wrong_public_key(self):
         with patch('influxproxy.app.InfluxDriver') as MockDriver:
+            self.set_auth(DB_USER, 'bogus-key')
             driver = MockDriver.return_value
-            origin = DB_CONF['allow_from'][0]
-            public_key = 'bogus-key'
-            authorization = base64.b64encode(
-                '{}:{}'.format(DB_USER, public_key).encode('utf-8'))
-            points = ['point1', 'point2']
-            data = json.dumps(points).encode('utf-8')
 
-            response = await self.client.post('/metric', data=data, headers={
-                'Authorization': 'Basic {}'.format(
-                    authorization.decode('utf-8')),
-                'Content-Type': 'application/json',
-                'Origin': origin,
-            })
+            response = await self.send_metric()
 
             self.assertEqual(response.status, 401)
             self.assertFalse(driver.write.called)
@@ -126,20 +143,10 @@ class MetricPostTest(AppTestCase):
     @asynctest
     async def cant_send_metric_if_wrong_origin(self):
         with patch('influxproxy.app.InfluxDriver') as MockDriver:
+            self.set_origin('bogus-origin')
             driver = MockDriver.return_value
-            origin = 'bogus-origin'
-            public_key = DB_CONF['public_key']
-            authorization = base64.b64encode(
-                '{}:{}'.format(DB_USER, public_key).encode('utf-8'))
-            points = ['point1', 'point2']
-            data = json.dumps(points).encode('utf-8')
 
-            response = await self.client.post('/metric', data=data, headers={
-                'Authorization': 'Basic {}'.format(
-                    authorization.decode('utf-8')),
-                'Content-Type': 'application/json',
-                'Origin': origin,
-            })
+            response = await self.send_metric()
 
             self.assertEqual(response.status, 403)
             self.assertFalse(driver.write.called)
@@ -147,20 +154,10 @@ class MetricPostTest(AppTestCase):
     @asynctest
     async def cant_send_metric_if_database_not_found(self):
         with patch('influxproxy.app.InfluxDriver') as MockDriver:
+            self.set_auth('bogus-db', DB_CONF['public_key'])
             driver = MockDriver.return_value
-            origin = DB_CONF['allow_from'][0]
-            public_key = DB_CONF['public_key']
-            authorization = base64.b64encode(
-                '{}:{}'.format('bogus-db', public_key).encode('utf-8'))
-            points = ['point1', 'point2']
-            data = json.dumps(points).encode('utf-8')
 
-            response = await self.client.post('/metric', data=data, headers={
-                'Authorization': 'Basic {}'.format(
-                    authorization.decode('utf-8')),
-                'Content-Type': 'application/json',
-                'Origin': origin,
-            })
+            response = await self.send_metric()
 
             self.assertEqual(response.status, 401)
             self.assertFalse(driver.write.called)
@@ -168,20 +165,11 @@ class MetricPostTest(AppTestCase):
     @asynctest
     async def cant_send_metric_if_auth_not_basic(self):
         with patch('influxproxy.app.InfluxDriver') as MockDriver:
+            self.headers['Authorization'] = 'Bearer {}'.format(
+                self.authorization.decode('utf-8'))
             driver = MockDriver.return_value
-            origin = DB_CONF['allow_from'][0]
-            public_key = DB_CONF['public_key']
-            authorization = base64.b64encode(
-                '{}:{}'.format(DB_USER, public_key).encode('utf-8'))
-            points = ['point1', 'point2']
-            data = json.dumps(points).encode('utf-8')
 
-            response = await self.client.post('/metric', data=data, headers={
-                'Authorization': 'Bearer {}'.format(
-                    authorization.decode('utf-8')),
-                'Content-Type': 'application/json',
-                'Origin': origin,
-            })
+            response = await self.send_metric()
 
             self.assertEqual(response.status, 400)
             self.assertFalse(driver.write.called)
@@ -189,16 +177,10 @@ class MetricPostTest(AppTestCase):
     @asynctest
     async def cant_send_metric_if_auth_not_decodable(self):
         with patch('influxproxy.app.InfluxDriver') as MockDriver:
+            self.headers['Authorization'] = 'Basic {}'.format('bogus-auth')
             driver = MockDriver.return_value
-            origin = DB_CONF['allow_from'][0]
-            points = ['point1', 'point2']
-            data = json.dumps(points).encode('utf-8')
 
-            response = await self.client.post('/metric', data=data, headers={
-                'Authorization': 'Basic {}'.format('bogus-auth'),
-                'Content-Type': 'application/json',
-                'Origin': origin,
-            })
+            response = await self.send_metric()
 
             self.assertEqual(response.status, 400)
             self.assertFalse(driver.write.called)
@@ -206,19 +188,10 @@ class MetricPostTest(AppTestCase):
     @asynctest
     async def cant_send_metric_if_auth_not_splittable(self):
         with patch('influxproxy.app.InfluxDriver') as MockDriver:
+            self.headers['Authorization'] = self.authorization.decode('utf-8')
             driver = MockDriver.return_value
-            origin = DB_CONF['allow_from'][0]
-            public_key = DB_CONF['public_key']
-            authorization = base64.b64encode(
-                '{}:{}'.format(DB_USER, public_key).encode('utf-8'))
-            points = ['point1', 'point2']
-            data = json.dumps(points).encode('utf-8')
 
-            response = await self.client.post('/metric', data=data, headers={
-                'Authorization': authorization.decode('utf-8'),
-                'Content-Type': 'application/json',
-                'Origin': origin,
-            })
+            response = await self.send_metric()
 
             self.assertEqual(response.status, 400)
             self.assertFalse(driver.write.called)
@@ -227,20 +200,9 @@ class MetricPostTest(AppTestCase):
     async def cant_send_metric_if_bad_metric_format(self):
         with patch('influxproxy.app.InfluxDriver') as MockDriver:
             driver = MockDriver.return_value
-            origin = DB_CONF['allow_from'][0]
-            public_key = DB_CONF['public_key']
-            authorization = base64.b64encode(
-                '{}:{}'.format(DB_USER, public_key).encode('utf-8'))
-            points = ['point1', 'point2']
-            data = json.dumps(points).encode('utf-8')
             driver.write.side_effect = MalformedDataError('oops...')
 
-            response = await self.client.post('/metric', data=data, headers={
-                'Authorization': 'Basic {}'.format(
-                    authorization.decode('utf-8')),
-                'Content-Type': 'application/json',
-                'Origin': origin,
-            })
+            response = await self.send_metric()
 
             self.assertEqual(response.status, 400)
 
@@ -248,20 +210,9 @@ class MetricPostTest(AppTestCase):
     async def cant_send_metric_if_backend_fails(self):
         with patch('influxproxy.app.InfluxDriver') as MockDriver:
             driver = MockDriver.return_value
-            origin = DB_CONF['allow_from'][0]
-            public_key = DB_CONF['public_key']
-            authorization = base64.b64encode(
-                '{}:{}'.format(DB_USER, public_key).encode('utf-8'))
-            points = ['point1', 'point2']
-            data = json.dumps(points).encode('utf-8')
             driver.write.side_effect = RuntimeError('oops...')
 
-            response = await self.client.post('/metric', data=data, headers={
-                'Authorization': 'Basic {}'.format(
-                    authorization.decode('utf-8')),
-                'Content-Type': 'application/json',
-                'Origin': origin,
-            })
+            response = await self.send_metric()
 
             self.assertEqual(response.status, 500)
 
