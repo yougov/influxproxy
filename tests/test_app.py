@@ -31,11 +31,6 @@ class PreflightTest(AppTestCase):
             'Access-Control-Request-Method': 'POST',
         }
 
-    def assert_control(self, response, access_control, expected):
-        self.assertEqual(
-            response.headers['Access-Control-{}'.format(access_control)],
-            expected)
-
     async def do_preflight(self, headers=None):
         url = '/metric/{}/{}'.format(self.user, self.public_key)
         if headers is not None:
@@ -49,7 +44,22 @@ class PreflightTest(AppTestCase):
 
         self.assertEqual(response.status, 200)
         self.assert_control(response, 'Allow-Origin', DB_CONF['allow_from'][0])
-        self.assert_control(response, 'Allow-Credentials', 'true')
+        self.assert_control(response, 'Allow-Methods', 'POST')
+        self.assert_control(
+            response, 'Allow-Headers', 'Content-Type')
+        self.assert_control(
+            response, 'Max-Age', str(config['preflight_expiration']))
+
+    @asynctest
+    async def sends_a_metric_preflight_to_generic_database(self):
+        self.user = 'udp'
+        self.public_key = config['databases']['udp']['public_key']
+        origin = 'http://some-unregistered-website.com'
+        self.headers['Origin'] = origin
+        response = await self.do_preflight()
+
+        self.assertEqual(response.status, 200)
+        self.assert_control(response, 'Allow-Origin', origin)
         self.assert_control(response, 'Allow-Methods', 'POST')
         self.assert_control(
             response, 'Allow-Headers', 'Content-Type')
@@ -140,8 +150,26 @@ class MetricPostTest(AppTestCase):
             response = await self.send_metric()
 
             self.assertEqual(response.status, 204)
+            self.assert_control(response, 'Allow-Origin', self.origin)
             MockDriver.assert_called_once_with(udp_port=DB_CONF['udp_port'])
             driver.write.assert_called_once_with(DB_USER, self.points)
+
+    @asynctest
+    async def sends_metric_to_generic_database(self):
+        with patch('influxproxy.app.InfluxDriver') as MockDriver:
+            self.user = 'udp'
+            self.public_key = config['databases']['udp']['public_key']
+            origin = 'http://some-unregistered-website.com'
+            self.headers['Origin'] = origin
+            driver = MockDriver.return_value
+
+            response = await self.send_metric()
+
+            self.assertEqual(response.status, 204)
+            self.assert_control(response, 'Allow-Origin', origin)
+            MockDriver.assert_called_once_with(
+                udp_port=config['databases']['udp']['udp_port'])
+            driver.write.assert_called_once_with(self.user, self.points)
 
     @asynctest
     async def cant_send_metric_if_wrong_public_key(self):

@@ -12,8 +12,12 @@ backend:
   password: root
 
 databases:
+  udp:
+    public_key: "9c0n9rwXCNDsYzAULSHpvN/f9WjOf1g3lzZ0k8K/MmucMfnRyhapkV0tMUCV9oek"
+    udp_port: 8086
+    allow_from: "*"
   testing:
     public_key: "Q2qr+2IaH39RGhiqpbXR/ExIJFNUgyOXKd7FJ/a8Vfu4ji5PZO5n/2RAHfUbKQ4y"
-    udp_port: 8086
+    udp_port: 8087
     allow_from:
       - localhost

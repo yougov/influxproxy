@@ -13,11 +13,6 @@ from influxproxy.configuration import DEBUG, PORT, PROJECT_ROOT, config
 from influxproxy.drivers import InfluxDriver, MalformedDataError
 
 
-ALL_ALLOWED_ORIGINS = [
-    allowed
-    for db_conf in config['databases'].values()
-    for allowed in db_conf['allow_from']
-]
 MANUAL_TEST_HOST = os.environ.get('HOST', 'localhost')
 
 
@@ -41,7 +36,8 @@ class RequestUser:
 
     def setup_origin(self):
         self.origin = self.request.headers['Origin']
-        if self.origin not in self.config['allow_from']:
+        allow_from = self.config['allow_from']
+        if allow_from != '*' and self.origin not in allow_from:
             raise web.HTTPForbidden(reason='Origin not allowed')
 
     def setup_public_key(self):

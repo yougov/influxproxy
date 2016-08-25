@@ -10,6 +10,11 @@ class AppTestCase(AioHTTPTestCase):
     def get_app(self, loop):
         return create_app(loop)
 
+    def assert_control(self, response, access_control, expected):
+        self.assertEqual(
+            response.headers['Access-Control-{}'.format(access_control)],
+            expected)
+
 
 def asynctest(f):
     return wraps(f)(
