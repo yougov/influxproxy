@@ -2,7 +2,17 @@ import getpass
 import os
 
 from paver.easy import (
-    task, sh, cmdopts, consume_args, Bunch, options, call_task, path, needs)
+    BuildFailure,
+    Bunch,
+    call_task,
+    cmdopts,
+    consume_args,
+    needs,
+    options,
+    path,
+    sh,
+    task,
+)
 
 
 VR_URL = os.environ.get('VELOCIRAPTOR_URL', 'https://deploy.yougov.net')
@@ -49,6 +59,50 @@ def test(args):
 @needs(['test', 'lint'])
 def build(args):
     pass
+
+
+@task
+@consume_args
+def bump(args):
+    """A thin wrapper around bumpversion."""
+    env_do('bumpversion %s' % ' '.join(args))
+
+
+@task
+@consume_args
+def release(args):
+    """Peform a release.
+
+    This will:
+
+      - check there are no unpushed/unpulled commits
+      - bump the version number and commit
+      - release the package to the cheeseshop
+
+    Example:
+
+      $> paver release patch
+
+    """
+    # Check we don't have pending commits
+    sh('git diff --quiet HEAD')
+
+    # Check we don't have unstaged changes
+    sh('git diff --cached --quiet HEAD')
+
+    # Tag
+    bumptypes = ['major', 'minor', 'patch']
+    bumptype = args.pop()
+
+    if not bumptype or bumptype not in bumptypes:
+        raise BuildFailure('Unknown bumptype: %s != %s' % (
+            bumptype, bumptypes))
+
+    call_task('bump', args=['--verbose', bumptype])
+
+    # Push
+    sh('git push')
+    sh('git push --tags')
 
 
 @task
