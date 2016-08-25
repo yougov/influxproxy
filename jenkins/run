@@ -1,5 +1,5 @@
 #!/bin/bash -e
-virtualenv env
+virtualenv -p /usr/bin/python3.5 env
 
 export APP_SETTINGS_YAML=$WORKSPACE/testing.yaml
 
