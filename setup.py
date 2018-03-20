@@ -1,6 +1,3 @@
-import sys
-import os
-
 from setuptools import setup, find_packages
 
 
@@ -25,7 +22,7 @@ setup(name='influxproxy',
           'aiohttp_jinja2>=0.8.0',
           'influxdb>=3.0.0',
           'PyYAML>=3.11',
-          #'uvloop>=0.5.2',  # Breaks static file serving. Will try later.
+          # 'uvloop>=0.5.2',  # Breaks static file serving. Will try later.
           'cchardet>=1.0.0',
           'gunicorn>=19.6.0',
       ],
