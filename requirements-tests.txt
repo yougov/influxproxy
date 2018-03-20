@@ -1,6 +1,1 @@
--r requirements-dev.txt
-
-nose
-coverage
-flake8
-xtraceback
+.[testing]

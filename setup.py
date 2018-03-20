@@ -18,14 +18,22 @@ setup(name='influxproxy',
       include_package_data=True,
       zip_safe=True,
       install_requires=[
-          'aiohttp>=0.22.5',
-          'aiohttp_jinja2>=0.8.0',
-          'influxdb>=3.0.0',
+          'aiohttp>=0.22.5,<1',
+          'aiohttp_jinja2>=0.8.0,<0.15',
+          'influxdb>=3.0.0,<4',
           'PyYAML>=3.11',
           # 'uvloop>=0.5.2',  # Breaks static file serving. Will try later.
           'cchardet>=1.0.0',
           'gunicorn>=19.6.0',
       ],
+      extras_require={
+          'testing': [
+              'nose',
+              'coverage',
+              'flake8',
+              'xtraceback',
+          ],
+      },
       dependency_links=['https://devpi.yougov.net/root/yg/'],
       entry_points="""
       # -*- Entry points: -*-
